@@ -25,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.ldap.core.DirContextOperations;
 import org.springframework.ldap.core.DistinguishedName;
 import org.springframework.ldap.core.LdapEncoder;
 import org.springframework.security.ldap.LdapUtils;
@@ -107,8 +108,18 @@ public class LdapUserRolesProvider implements UserRolesProvider {
     log.debug("Root DN: " + root.toString());
 
     String[] formatArgs = new String[]{LdapEncoder.nameEncode(userId)};
-    String formattedUser = configProps.getUserDnPattern().format(formatArgs);
-    DistinguishedName user = new DistinguishedName(formattedUser);
+
+    String partialUserDn;
+    if (!StringUtils.isEmpty(configProps.getUserSearchFilter())) {
+      DirContextOperations res = ldapTemplate.searchForSingleEntry(configProps.getUserSearchBase(),
+              configProps.getUserSearchFilter(), formatArgs);
+
+      partialUserDn = res.getDn().toString();
+    } else {
+      partialUserDn = configProps.getUserDnPattern().format(formatArgs);
+    }
+
+    DistinguishedName user = new DistinguishedName(partialUserDn);
     log.debug("User portion: " + user.toString());
 
     try {
