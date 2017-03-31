@@ -25,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.dao.IncorrectResultSizeDataAccessException;
 import org.springframework.ldap.core.DirContextOperations;
 import org.springframework.ldap.core.DistinguishedName;
 import org.springframework.ldap.core.LdapEncoder;
@@ -111,10 +112,15 @@ public class LdapUserRolesProvider implements UserRolesProvider {
 
     String partialUserDn;
     if (!StringUtils.isEmpty(configProps.getUserSearchFilter())) {
-      DirContextOperations res = ldapTemplate.searchForSingleEntry(configProps.getUserSearchBase(),
-              configProps.getUserSearchFilter(), formatArgs);
 
-      partialUserDn = res.getDn().toString();
+      try {
+        DirContextOperations res = ldapTemplate.searchForSingleEntry(configProps.getUserSearchBase(),
+                configProps.getUserSearchFilter(), formatArgs);
+        partialUserDn = res.getDn().toString();
+      } catch (IncorrectResultSizeDataAccessException e) {
+        log.error("Unable to find a single user entry", e);
+        return null;
+      }
     } else {
       partialUserDn = configProps.getUserDnPattern().format(formatArgs);
     }
